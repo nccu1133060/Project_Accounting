@@ -211,7 +211,8 @@ public class LoginPage {
     //Passes the data after success login
     private void loginSuccess(String name, Stage stage, Integer[] loginDaysArray, int totalLoggedInDays) {
         Project_Accounting app = new Project_Accounting();
-        app.startMainApplication(stage, name, loginDaysArray, totalLoggedInDays);
+        app.start(stage);
+        app.setupMainMenu(name, stage, loginDaysArray, totalLoggedInDays);
     }
 
     //Identical to normal login only with the name and password set to mine
