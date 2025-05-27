@@ -7,12 +7,14 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Project_Accounting extends Application {
     private BorderPane mainLayout;
     private VBox mainMenu;
     private PieChart mainPieChart;
-
     public static ArrayList<Record> records = new ArrayList<>();
     public static PieChart getSharedPieChart() {
         return new PieChart();
@@ -21,8 +23,6 @@ public class Project_Accounting extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("記帳軟體");
         mainLayout = new BorderPane();
-
-        setupMainMenu();
         setupMainChart();
 
         mainLayout.setLeft(mainMenu);
@@ -33,16 +33,16 @@ public class Project_Accounting extends Application {
         primaryStage.show();
     }
 
-    private void setupMainMenu() {
+    public void setupMainMenu(String name, Stage stage, Integer[] loginDaysArray, int totalLoggedInDays) {
         mainMenu = new VBox(10);
-
+        Set<Integer> LDA = new HashSet<>(Arrays.asList(loginDaysArray));
         Button btnRecord = new Button("記帳");
         Button btnCalendar = new Button("記帳日曆");
         Button btnTask = new Button("任務");
 
         btnRecord.setOnAction(e -> mainLayout.setCenter(new RecordView().getView(mainPieChart)));
-        btnCalendar.setOnAction(e -> mainLayout.setCenter(new CalendarView().getView()));
-        btnTask.setOnAction(e -> mainLayout.setCenter(new TaskView().getView()));
+        btnCalendar.setOnAction(e -> mainLayout.setCenter(new CalendarView().getView(LDA, totalLoggedInDays)));
+        btnTask.setOnAction(e -> mainLayout.setCenter(new TaskView().getView(name)));
 
         mainMenu.getChildren().addAll(btnRecord, btnCalendar, btnTask);
     }
