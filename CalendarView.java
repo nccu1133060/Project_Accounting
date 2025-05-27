@@ -9,7 +9,7 @@ import javafx.scene.text.Text;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.Set;
-
+// Main coder editor: Malulu
 public class CalendarView {
 
     private static final int CIRCLE_RADIUS = 30;
