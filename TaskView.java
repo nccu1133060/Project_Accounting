@@ -4,6 +4,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextArea;
@@ -15,25 +16,23 @@ import javafx.stage.Stage;
 import java.io.*;
 import java.util.*;
 
-//Main code editor: Malulu
-
 public class TaskView {
 
     String filename = " ";
+	private final File dataFolder = new File("data");
 
     public StackPane getView(String username) {
 
-        filename = username + "Budget.txt";
+        filename = "data/" + username + "Budget.txt";
         
         switch (fileCheck(filename)) {
             case 1:
-            	writeInitial();
-            	showAlert(AlertType.INFORMATION, "Initial entries written.\nInitial budgets for each entries are set to 20,000");
-            
+            	writeInitial();            
         }
 
         StackPane root = new StackPane();
-        
+        VBox labelBox = new VBox(10);
+        labelBox.setAlignment(Pos.CENTER);
         HBox button = new HBox(10);
         button.setAlignment(Pos.CENTER);
         VBox content = new VBox(15);
@@ -47,6 +46,13 @@ public class TaskView {
         TextField budgetInput = new TextField();
         budgetInput.setPromptText("輸入該科目的預算:");
         
+        Label type = new Label("請輸入類別: ");
+        ComboBox<String> categoryBox = new ComboBox<>();
+        categoryBox.getItems().addAll("吃的", "日常確幸", "服飾", "欠款", "通勤", "其他");
+        
+        HBox titleInputBox = new HBox(10);
+        titleInputBox.getChildren().addAll(titleInput, type, categoryBox);
+        
         // Output area
         TextArea displayArea = new TextArea();
         displayArea.setEditable(false);
@@ -54,12 +60,20 @@ public class TaskView {
         displayArea.setPrefColumnCount(30);
         updateDisplay(displayArea);
 
+        // Label
+        Label label = new Label("預算管理頁面");
+        label.setStyle("-fx-font-size: 30px; -fx-font-weight: bold;");
+        
         // Save button
         Button saveButton = new Button("Add Entry");
         
         //Edit button
         Button editButton = new Button("Edit");
 
+        Button deleteButton = new Button("清除檔案並關閉程式(按下前請三思)");
+        deleteButton.setStyle("-fx-background-color: #8B0000; -fx-text-fill: #FFFFFF;");
+        
+        // button actions
         saveButton.setOnAction(e -> {
             String title = titleInput.getText().trim();
             String budget = budgetInput.getText().trim();
@@ -76,7 +90,7 @@ public class TaskView {
             if (isDuplicateTitle(title)) {
                 showAlert(AlertType.ERROR, "Title already exists.");
             } else {
-                writeFile(title, budget);
+                writeFile(title, budget, categoryBox.getValue().toString());
                 updateDisplay(displayArea);
                 showAlert(AlertType.INFORMATION, "Entry saved.");
                 titleInput.clear();
@@ -100,7 +114,7 @@ public class TaskView {
             if(isDuplicateTitle(title)) {
             	deleteTitle(title);
             	if(!budget.equals("0")) {
-                    writeFile(title, budget);
+                    writeFile(title, budget, categoryBox.getValue().toString());
                     showAlert(AlertType.INFORMATION, "Entry edited and saved.");
             	}else {
                     showAlert(AlertType.INFORMATION, "Entry deleted and saved.");
@@ -110,15 +124,20 @@ public class TaskView {
                 budgetInput.clear();
             }
         });
+        
+        deleteButton.setOnAction(e -> handleClearFile(filename));
+        
+        
         button.getChildren().addAll(saveButton, editButton);
-        content.getChildren().addAll(titleInput, budgetInput, button, displayArea);
+        labelBox.getChildren().addAll(label);
+        content.getChildren().addAll(labelBox, titleInputBox, budgetInput, button, displayArea, deleteButton);
         root.getChildren().add(content);
         return root;
     }
 
     private int fileCheck(String fileName) {
-        File file = new File(fileName);
-        if (!file.exists()) {
+    	File file = new File(fileName);
+    	if (!file.exists()) {
             try {
                 if (file.createNewFile()) {
                     System.out.println("Save file not found. New file created.");
@@ -135,9 +154,9 @@ public class TaskView {
         return 2;
     }
 
-    private void writeFile(String title, String budget) {
+    private void writeFile(String title, String budget, String type) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename, true))) {
-            writer.write(title + "   " + budget + "\n");
+            writer.write(title + "    " + budget + "    " + type + "\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -168,7 +187,7 @@ public class TaskView {
             
             while ((line = reader.readLine()) != null) {
                 // Skip header, always keep it
-                if (line.trim().equalsIgnoreCase("Title   Budget")) {
+                if (line.trim().equalsIgnoreCase("Title     Budget     Category")) {
                     writer.write(line);
                     writer.newLine();
                     continue;
@@ -203,7 +222,7 @@ public class TaskView {
     
     private void writeInitial() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            writer.write("Title   Budget\n食物  20000\n生活用品  20000\n衣服  20000\n通勤  20000\n");
+            writer.write("Title     Budget     Category\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -226,7 +245,33 @@ public class TaskView {
         return false;
     }
 
-    private void showAlert(AlertType type, String message) {
+    private void handleClearFile(String fileName) {
+        File file = new File(fileName);
+        if (file.exists() && file.delete()) {
+            showSuccess("User data file cleared");
+        } else {
+            showError("Error clearing user data file");
+        }
+        System.exit(0);
+    }
+    
+    private void showSuccess(String message) {
+    	Alert alert = new Alert(AlertType.INFORMATION);
+        alert.setTitle("Success");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+	}
+    
+    private void showError(String message) {
+    	Alert alert = new Alert(AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+	private void showAlert(AlertType type, String message) {
         Alert alert = new Alert(type);
         alert.setContentText(message);
         alert.showAndWait();
