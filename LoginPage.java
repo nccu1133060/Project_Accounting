@@ -108,7 +108,7 @@ public class LoginPage {
         /*
          * FORMAT: name XXXX password XXXX login days in a week XXXX current week XXXX total logged in days
          */
-        try (Scanner sc = new Scanner(new File(fileName))) {
+        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 allLines.add(line);
@@ -220,6 +220,7 @@ public class LoginPage {
     //Passes the data after success login
     private void loginSuccess(String name, Stage stage, Integer[] loginDaysArray, int totalLoggedInDays) {
         Project_Accounting app = new Project_Accounting();
+        stage.setTitle("記帳軟體");
         app.start(stage);
         app.setupMainMenu(name, stage, loginDaysArray, totalLoggedInDays);
 
@@ -241,7 +242,7 @@ public class LoginPage {
         /*
          * FORMAT: name XXXX password XXXX login days in a week XXXX current week XXXX total logged in days
          */
-        try (Scanner sc = new Scanner(new File(fileName))) {
+        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 allLines.add(line);
@@ -368,19 +369,20 @@ public class LoginPage {
     
     //enrolls user
     /*
-     * FORMAT: name XXXX password XXXX login days in a week XXXX current week XXXX total logged in days
+     * FORMAT: name XXXX password XXXX login days in a week XXXX hasLoggedInToday XXXX total logged in days
      */
     private void handleEnroll() {
+    	
         String inputU = tfUserName.getText().trim();
         String inputP = tfPassword.getText().trim();
-
+        
         if (inputU.isEmpty() || inputP.isEmpty()) {
             showError("Username and Password cannot be empty");
             return;
         }
 
         // Check for duplicate user names
-        try (Scanner sc = new Scanner(new File(fileName))) {
+        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 String[] parts = line.split(FIELD_DET);
@@ -403,9 +405,9 @@ public class LoginPage {
 
         String loginDays = currentDay + DAYS_DET; // e.g., "1X"
 
-        try (FileWriter writer = new FileWriter(fileName, true)) {  // true = append
+        try (FileWriter writer = new FileWriter(userDataFile.getPath(), true)) {  // true = append
             writer.write(inputU + FIELD_DET + inputP + FIELD_DET + weekLogin + FIELD_DET +
-                         loginDays + WEEK_DET + FIELD_DET + currentWeek + FIELD_DET + totalLoggedInDays + "\n");
+                         loginDays + FIELD_DET + currentWeek + FIELD_DET + totalLoggedInDays + "\n");
             showSuccess("Enrollment successful!");
         } catch (IOException e) {
             e.printStackTrace();
@@ -414,7 +416,7 @@ public class LoginPage {
     }
 
     public int[] getWeekLogin(String username) {
-        try (Scanner sc = new Scanner(new File(fileName))) {
+        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 String[] parts = line.split(FIELD_DET);
