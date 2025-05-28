@@ -156,11 +156,12 @@ public class TaskView {
 
     private void writeFile(String title, String budget, String type) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename, true))) {
-            writer.write(title + "    " + budget + "    " + type + "\n");
+            writer.write(String.format("%-20s%-20s%-20s%n", title, budget, type));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
     private void updateDisplay(TextArea area) {
         StringBuilder content = new StringBuilder();
@@ -222,11 +223,12 @@ public class TaskView {
     
     private void writeInitial() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            writer.write("Title     Budget     Category\n");
+            writer.write(String.format("%-20s%-20s%-20s%n", "Title", "Budget", "Category"));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
     private boolean isDuplicateTitle(String title) {
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
@@ -244,6 +246,26 @@ public class TaskView {
         }
         return false;
     }
+    
+    public double getBudgetForTitle(String title) {
+    	double b = 0;
+    	try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            String line;
+            // Skip header
+            reader.readLine();
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\\s+");
+                if (parts.length > 0 && parts[0].equalsIgnoreCase(title)) {
+                	
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    	return b;
+    }
+    
+    
 
     private void handleClearFile(String fileName) {
         File file = new File(fileName);
