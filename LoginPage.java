@@ -14,6 +14,9 @@ import java.util.*;
 
 public class LoginPage {
 
+	private final File dataFolder = new File("data");
+	private final File userDataFile = new File(dataFolder, "UserNames.txt");
+
 	private final String FIELD_DET = "XXXX";
 	private final String DAYS_DET = "X";
 	private final String WEEK_DET = "XX";
@@ -24,7 +27,8 @@ public class LoginPage {
     private String fileName = "UserNames.txt";
 
     public void createLoginPage(Stage stage) {
-        fileCheck(fileName);
+    	
+    	fileCheck(userDataFile);
 
         VBox layout = new VBox(10);
         VBox button = new VBox(10);
@@ -55,19 +59,22 @@ public class LoginPage {
     }
     
     //Checks if file exists, if not, create a new file.
-    private void fileCheck(String fileName) {
-        File file = new File(fileName);
-        if (!file.exists()) {
+    private void fileCheck(File userFile) {
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();  // Create the folder if missing
+            System.out.println("Created data directory.");
+        }
+
+        if (!userFile.exists()) {
             try {
-                if (file.createNewFile()) {
-                	try (FileWriter writer = new FileWriter(fileName, true)) {  // true = append
+                if (userFile.createNewFile()) {
+                    try (FileWriter writer = new FileWriter(userFile, true)) {
                         writer.write("malu" + FIELD_DET + "0000" + FIELD_DET + "0" + FIELD_DET +
                                      "0" + WEEK_DET + FIELD_DET + "0" + FIELD_DET + "0" + "\n");
                         showSuccess("Enrollment successful!");
                     } catch (IOException e) {
                         e.printStackTrace();
                         showError("Error enrolling user");
-                    System.out.println("Save file not found. New file created.");
                     }
                 }
             } catch (IOException e) {
@@ -78,6 +85,7 @@ public class LoginPage {
             System.out.println("Save file found.");
         }
     }
+
     
     //The login process after the user presses the login button
     private void handleLogin(Stage stage) {
@@ -188,17 +196,18 @@ public class LoginPage {
         List<String> updatedLines = new ArrayList<>();
         for (String line : allLines) {
             if (line.equals(matchedLine)) {
-                updatedLines.add(updatedLine + "\n");
+                updatedLines.add(updatedLine);
             } else {
-                updatedLines.add(line + "\n");
+                updatedLines.add(line);
             }
         }
 
         try (FileWriter writer = new FileWriter(fileName, false)) {
             for (String updated : updatedLines) {
-                writer.write(updated + "\n");
+                writer.write(updated + System.lineSeparator());
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
             showError("更新登入資料時錯誤!");
             return;
@@ -213,6 +222,7 @@ public class LoginPage {
         Project_Accounting app = new Project_Accounting();
         app.start(stage);
         app.setupMainMenu(name, stage, loginDaysArray, totalLoggedInDays);
+
     }
 
     //Identical to normal login only with the name and password set to mine
@@ -319,17 +329,18 @@ public class LoginPage {
         List<String> updatedLines = new ArrayList<>();
         for (String line : allLines) {
             if (line.equals(matchedLine)) {
-                updatedLines.add(updatedLine + "\n");
+                updatedLines.add(updatedLine);
             } else {
-                updatedLines.add(line + "\n");
+                updatedLines.add(line);
             }
         }
 
         try (FileWriter writer = new FileWriter(fileName, false)) {
             for (String updated : updatedLines) {
-                writer.write(updated + "\n");
+                writer.write(updated + System.lineSeparator());
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
             showError("更新登入資料時錯誤!");
             return;
@@ -442,12 +453,27 @@ public class LoginPage {
     }
 
     private void handleClearFile() {
-        File file = new File(fileName);
-        if (file.exists() && file.delete()) {
-            showSuccess("User data file cleared");
+        if (dataFolder.exists() && dataFolder.isDirectory()) {
+            File[] files = dataFolder.listFiles();
+            boolean allDeleted = true;
+
+            if (files != null) {
+                for (File f : files) {
+                    if (!f.delete()) {
+                        allDeleted = false;
+                    }
+                }
+            }
+
+            if (allDeleted) {
+                showSuccess("All data files cleared.");
+            } else {
+                showError("Some files could not be deleted.");
+            }
         } else {
-            showError("Error clearing user data file");
+            showError("Data folder does not exist.");
         }
-        System.exit(0);
+        System.exit(0);  // Close application
     }
+
 }
