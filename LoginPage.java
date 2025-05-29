@@ -109,7 +109,6 @@ public class LoginPage {
                     if (storedU.equals(inputU)) {
                         userFound = true;
                         storedP = parts[1];
-                        weekLogin.append(parts[2]);
                         tempWeekLogin = parts[2];
                         hasLoggedIn = Integer.parseInt(parts[3]);
                         totalLoggedInDays = Integer.parseInt(parts[4]);
@@ -147,45 +146,21 @@ public class LoginPage {
         }
 
         // Update login state
-        if (recordedWeek != currentWeek) {
-            // New week
-	        for(int i = 0; i < currentDayOfWeek; i++) {
-	        	weekLogin.append("0").append(".");
-	        }
-	        weekLogin.append(currentDayOfWeek);
-	        for(int i = currentDayOfWeek + 1; i <= 7; i++) {
-	        	weekLogin.append("0").append(".");
-	        }
-            totalLoggedInDays++;
-            hasLoggedIn = 1;
-        }  else if (recordedWeek == currentWeek && hasLoggedIn == 0) {
-            // Same day but hasn't logged in yet
-        	String[] splitDays = tempWeekLogin.split("\\.");
-        	String[] tempDays = new String[7];
+     // Update login info
+        if (recordedDay != currentDayOfWeek) {
+            hasLoggedIn = 0;
+        }
 
-        	// Fill in provided values
-        	for (int i = 0; i < Math.min(splitDays.length, 7); i++) {
-        	    tempDays[i] = splitDays[i];
-        	}
-
-        	// Fill in missing values with "0"
-        	for (int i = splitDays.length; i < 7; i++) {
-        	    tempDays[i] = "0";
-        	}
-
-            for(int i = 0; i <= recordedDay; i++) {
-            	weekLogin.append(tempDays[i]).append(".");
-            }
-            weekLogin.append(recordedDay).append(".");
-            for(int i = currentDayOfWeek + 1; i <= 7; i++) {
-	        	weekLogin.append("0").append(".");
-	        }
+        if (recordedWeek != currentWeek || hasLoggedIn == 0) {
             totalLoggedInDays++;
             hasLoggedIn = 1;
         }
 
+        String weekLoginStr = buildNormalizedWeekLogin(tempWeekLogin, recordedWeek, recordedDay,
+                                                        currentWeek, currentDayOfWeek, hasLoggedIn);
+
         // Prepare updated line
-        String updatedLine = inputU + FIELD_DET + storedP + FIELD_DET + weekLogin + FIELD_DET +
+        String updatedLine = inputU + FIELD_DET + storedP + FIELD_DET + weekLoginStr + FIELD_DET +
                 hasLoggedIn + FIELD_DET + totalLoggedInDays + FIELD_DET +
                 currentWeek + FIELD_DET + currentDayOfWeek + "\n";
         
@@ -209,11 +184,13 @@ public class LoginPage {
             return;
         }
         
-        String[] updatedWeekLoginS = weekLogin.toString().split("\\.");
+        String[] updatedWeekLoginS = weekLoginStr.split("\\.");
         Integer[] updatedWeekLoginI = new Integer[updatedWeekLoginS.length];
 
-        for (int i = 0; i < updatedWeekLoginS.length; i++) {
-            updatedWeekLoginI[i] = Integer.parseInt(updatedWeekLoginS[i]);
+        for (int i = 0; i < 7; i++) {
+            if(updatedWeekLoginS[i].equals("1")) {
+            	updatedWeekLoginI[i] = i + 1;
+            }
         }
 
         loginSuccess(inputU, stage, updatedWeekLoginI, totalLoggedInDays);
@@ -293,7 +270,40 @@ public class LoginPage {
             showError("Error enrolling user");
         }
     }
+    
+    //Don't touch
+    private String buildNormalizedWeekLogin(String previousLogin, int recordedWeek, int recordedDay,
+            int currentWeek, int currentDayOfWeek, int hasLoggedIn) {
+    			int[] days = new int[7]; // default to 0s
 
+    			// Fill previous login data if it's same week
+    			if (recordedWeek == currentWeek) {
+    				String[] split = previousLogin.split("\\.");
+    				for (int i = 0; i < Math.min(split.length, 7); i++) {
+    					try {
+    						days[i] = Integer.parseInt(split[i]);
+    					} catch (NumberFormatException e) {
+    						days[i] = 0;
+    					}
+    				}
+
+    				// If not logged in yet today, mark it
+    				if (hasLoggedIn == 0) {
+    					days[currentDayOfWeek - 1] = 1;
+    				}
+    			} else {
+    				// New week, only mark today
+    				days[currentDayOfWeek - 1] = 1;
+    			}
+
+    			// Build string
+    			StringBuilder sb = new StringBuilder();
+    			for (int i = 0; i < 7; i++) {
+    				sb.append(days[i]).append(".");
+    			}
+    			
+    			return sb.toString();
+    }
 
     private int getCurrentWeek() {
         LocalDate date = LocalDate.now();
