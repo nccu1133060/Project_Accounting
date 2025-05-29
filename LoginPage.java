@@ -18,12 +18,11 @@ public class LoginPage {
 	private final File userDataFile = new File(dataFolder, "UserNames.txt");
 
 	private final String FIELD_DET = "XXXX";
-	private final String DAYS_DET = "X";
-	private final String WEEK_DET = "XX";
-	
+	private final int currentWeek = getCurrentWeek();
+	private final int currentDay = getCurrentDay();
     private TextField tfUserName;
     private PasswordField tfPassword;
-    private Button btnLogin, btnEnroll, btnClearFile, btnDevLogin;
+    private Button btnLogin, btnEnroll, btnClearFile;
     private String fileName = "UserNames.txt";
 
     public void createLoginPage(Stage stage) {
@@ -42,14 +41,12 @@ public class LoginPage {
         btnLogin = new Button("登入");
         btnClearFile = new Button("清除檔案並關閉程式(按下前請三思)");
         btnClearFile.setStyle("-fx-background-color: #8B0000; -fx-text-fill: #FFFFFF;");
-        btnDevLogin = new Button("DevLogin");
 
         btnLogin.setOnAction(e -> handleLogin(stage));
         btnEnroll.setOnAction(e -> handleEnroll());
         btnClearFile.setOnAction(e -> handleClearFile());
-        btnDevLogin.setOnAction(e -> handleDevLogin(stage));
         
-        button.getChildren().addAll(btnDevLogin, btnLogin, btnEnroll, btnClearFile);
+        button.getChildren().addAll(btnLogin, btnEnroll, btnClearFile);
         layout.getChildren().addAll(tfUserName, tfPassword, button);
 
         Scene scene = new Scene(layout, 400, 300);
@@ -68,14 +65,7 @@ public class LoginPage {
         if (!userFile.exists()) {
             try {
                 if (userFile.createNewFile()) {
-                    try (FileWriter writer = new FileWriter(userFile, true)) {
-                        writer.write("malu" + FIELD_DET + "0000" + FIELD_DET + "0" + FIELD_DET +
-                                     "0" + WEEK_DET + FIELD_DET + "0" + FIELD_DET + "0" + "\n");
-                        showSuccess("Enrollment successful!");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        showError("Error enrolling user");
-                    }
+                	showSuccess("File creation successful!");
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -99,48 +89,32 @@ public class LoginPage {
         }
 
         boolean userFound = false;
-        String storedP = null;
-        int weekLogin = 0;
-        List<Integer> loginDays = new ArrayList<>();
-        int recordedWeek = -1;
-        List<String> allLines = new ArrayList<>();
+        String storedP = null; // stored password
+        StringBuilder weekLogin = new StringBuilder(); // login days in a week
+        String tempWeekLogin = " "; // temp
+        int recordedWeek = 0; // record week
+        int recordedDay = 0; // //day
+        int hasLoggedIn = 1; // same day login indicator
         String matchedLine = null;
-        /*
-         * FORMAT: name XXXX password XXXX login days in a week XXXX current week XXXX total logged in days
-         */
+        List<String> allLines = new ArrayList<>();
+
         try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 allLines.add(line);
                 String[] parts = line.split(FIELD_DET);
 
-                if (parts.length >= 6) {
+                if (parts.length >= 7) {
                     String storedU = parts[0];
                     if (storedU.equals(inputU)) {
                         userFound = true;
                         storedP = parts[1];
-                        weekLogin = Integer.parseInt(parts[2]);
-                        String loginDaysRaw = parts[3];
-
-                        // Parse login days
-                        String[] loginDayParts = loginDaysRaw.split(WEEK_DET);
-                        String recordedDaysStr = loginDayParts.length > 0 ? loginDayParts[0] : "";
-                        String[] recordedDaysArray = recordedDaysStr.isEmpty() ? new String[0] : recordedDaysStr.split(DAYS_DET);
-
-                        for (String d : recordedDaysArray) {
-                            try {
-                                loginDays.add(Integer.parseInt(d));
-                            } catch (NumberFormatException ignored) {}
-                        }
-
-                        try {
-                            recordedWeek = Integer.parseInt(parts[4]);
-                        } catch (NumberFormatException ignored) {}
-
-                        try {
-                            totalLoggedInDays = Integer.parseInt(parts[5]);
-                        } catch (NumberFormatException ignored) {}
-
+                        weekLogin.append(parts[2]);
+                        tempWeekLogin = parts[2];
+                        hasLoggedIn = Integer.parseInt(parts[3]);
+                        totalLoggedInDays = Integer.parseInt(parts[4]);
+                        recordedWeek = Integer.parseInt(parts[5]);
+                        recordedDay = Integer.parseInt(parts[6]);
                         matchedLine = line;
                         break;
                     }
@@ -162,37 +136,60 @@ public class LoginPage {
             return;
         }
 
-        // Password is correct: update login data
+        // Get current date info
         LocalDate today = LocalDate.now();
         int currentDayOfWeek = today.getDayOfWeek().getValue(); // 1 = Monday
         int currentWeek = today.get(WeekFields.ISO.weekOfWeekBasedYear());
 
+        // Reset hasLoggedIn if it's a new day
+        if (recordedDay != currentDayOfWeek) {
+            hasLoggedIn = 0;
+        }
+
+        // Update login state
         if (recordedWeek != currentWeek) {
-            loginDays.clear();
-            loginDays.add(currentDayOfWeek);
-            if (currentDayOfWeek == 7 || weekLogin > 7) {
-            	weekLogin = 1;
-            }else {
-            	weekLogin++;
+            // New week
+	        for(int i = 0; i < currentDayOfWeek; i++) {
+	        	weekLogin.append("0").append(".");
+	        }
+	        weekLogin.append(currentDayOfWeek);
+	        for(int i = currentDayOfWeek + 1; i <= 7; i++) {
+	        	weekLogin.append("0").append(".");
+	        }
+            totalLoggedInDays++;
+            hasLoggedIn = 1;
+        }  else if (recordedWeek == currentWeek && hasLoggedIn == 0) {
+            // Same day but hasn't logged in yet
+        	String[] splitDays = tempWeekLogin.split("\\.");
+        	String[] tempDays = new String[7];
+
+        	// Fill in provided values
+        	for (int i = 0; i < Math.min(splitDays.length, 7); i++) {
+        	    tempDays[i] = splitDays[i];
+        	}
+
+        	// Fill in missing values with "0"
+        	for (int i = splitDays.length; i < 7; i++) {
+        	    tempDays[i] = "0";
+        	}
+
+            for(int i = 0; i <= recordedDay; i++) {
+            	weekLogin.append(tempDays[i]).append(".");
             }
-            totalLoggedInDays++;  // First login of a new week, so it's a new day
-        } else if (!loginDays.contains(currentDayOfWeek)) {
-            loginDays.add(currentDayOfWeek);
-            weekLogin++;
-            totalLoggedInDays++;  // First login of the day in current week
+            weekLogin.append(recordedDay).append(".");
+            for(int i = currentDayOfWeek + 1; i <= 7; i++) {
+	        	weekLogin.append("0").append(".");
+	        }
+            totalLoggedInDays++;
+            hasLoggedIn = 1;
         }
 
-        Collections.sort(loginDays);
-        StringBuilder sb = new StringBuilder();
-        for (int day : loginDays) {
-            sb.append(day).append(DAYS_DET);
-        }
-        sb.append(FIELD_DET); // Ending "XXXX"
-
+        // Prepare updated line
         String updatedLine = inputU + FIELD_DET + storedP + FIELD_DET + weekLogin + FIELD_DET +
-                sb + FIELD_DET + currentWeek + FIELD_DET + totalLoggedInDays;
-
-        // Rebuild file with updated line
+                hasLoggedIn + FIELD_DET + totalLoggedInDays + FIELD_DET +
+                currentWeek + FIELD_DET + currentDayOfWeek + "\n";
+        
+        // Rebuild file content
         List<String> updatedLines = new ArrayList<>();
         for (String line : allLines) {
             if (line.equals(matchedLine)) {
@@ -202,20 +199,26 @@ public class LoginPage {
             }
         }
 
-        try (FileWriter writer = new FileWriter(fileName, false)) {
+        try (FileWriter writer = new FileWriter(userDataFile, false)) {
             for (String updated : updatedLines) {
                 writer.write(updated + System.lineSeparator());
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             showError("更新登入資料時錯誤!");
             return;
         }
+        
+        String[] updatedWeekLoginS = weekLogin.toString().split("\\.");
+        Integer[] updatedWeekLoginI = new Integer[updatedWeekLoginS.length];
 
-        Integer[] loginDaysArray = loginDays.toArray(new Integer[0]);
-        loginSuccess(inputU, stage, loginDaysArray, totalLoggedInDays);
+        for (int i = 0; i < updatedWeekLoginS.length; i++) {
+            updatedWeekLoginI[i] = Integer.parseInt(updatedWeekLoginS[i]);
+        }
+
+        loginSuccess(inputU, stage, updatedWeekLoginI, totalLoggedInDays);
     }
+
 
     //Passes the data after success login
     private void loginSuccess(String name, Stage stage, Integer[] loginDaysArray, int totalLoggedInDays) {
@@ -227,129 +230,6 @@ public class LoginPage {
     }
 
     //Identical to normal login only with the name and password set to mine
-    private void handleDevLogin(Stage stage) {
-        String inputU = "malu";
-        String inputP = "0000";
-        int totalLoggedInDays = 0;
-
-        boolean userFound = false;
-        String storedP = null;
-        int weekLogin = 0;
-        List<Integer> loginDays = new ArrayList<>();
-        int recordedWeek = -1;
-        List<String> allLines = new ArrayList<>();
-        String matchedLine = null;
-        /*
-         * FORMAT: name XXXX password XXXX login days in a week XXXX current week XXXX total logged in days
-         */
-        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
-            while (sc.hasNextLine()) {
-                String line = sc.nextLine();
-                allLines.add(line);
-                String[] parts = line.split(FIELD_DET);
-
-                if (parts.length >= 6) {
-                    String storedU = parts[0];
-                    if (storedU.equals(inputU)) {
-                        userFound = true;
-                        storedP = parts[1];
-                        weekLogin = Integer.parseInt(parts[2]);
-                        String loginDaysRaw = parts[3];
-
-                        // Parse login days
-                        String[] loginDayParts = loginDaysRaw.split(WEEK_DET);
-                        String recordedDaysStr = loginDayParts.length > 0 ? loginDayParts[0] : "";
-                        String[] recordedDaysArray = recordedDaysStr.isEmpty() ? new String[0] : recordedDaysStr.split(DAYS_DET);
-
-                        for (String d : recordedDaysArray) {
-                            try {
-                                loginDays.add(Integer.parseInt(d));
-                            } catch (NumberFormatException ignored) {}
-                        }
-
-                        try {
-                            recordedWeek = Integer.parseInt(parts[4]);
-                        } catch (NumberFormatException ignored) {}
-
-                        try {
-                            totalLoggedInDays = Integer.parseInt(parts[5]);
-                        } catch (NumberFormatException ignored) {}
-
-                        matchedLine = line;
-                        break;
-                    }
-                }
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            showError("讀檔時錯誤!");
-            return;
-        }
-
-        if (!userFound) {
-            showError("找不到使用者名稱!");
-            return;
-        }
-
-        if (!inputP.equals(storedP)) {
-            showError("密碼錯誤!");
-            return;
-        }
-
-        // Password is correct: update login data
-        LocalDate today = LocalDate.now();
-        int currentDayOfWeek = today.getDayOfWeek().getValue(); // 1 = Monday
-        int currentWeek = today.get(WeekFields.ISO.weekOfWeekBasedYear());
-
-        if (recordedWeek != currentWeek) {
-            loginDays.clear();
-            loginDays.add(currentDayOfWeek);
-            if (currentDayOfWeek == 7 || weekLogin > 7) {
-            	weekLogin = 1;
-            }else {
-            	weekLogin++;
-            }
-            totalLoggedInDays++;  // First login of a new week, so it's a new day
-        } else if (!loginDays.contains(currentDayOfWeek)) {
-            loginDays.add(currentDayOfWeek);
-            weekLogin++;
-            totalLoggedInDays++;  // First login of the day in current week
-        }
-
-        Collections.sort(loginDays);
-        StringBuilder sb = new StringBuilder();
-        for (int day : loginDays) {
-            sb.append(day).append(DAYS_DET);
-        }
-        sb.append(FIELD_DET); // Ending "XXXX"
-
-        String updatedLine = inputU + FIELD_DET + storedP + FIELD_DET + weekLogin + FIELD_DET +
-                sb + FIELD_DET + currentWeek + FIELD_DET + totalLoggedInDays;
-
-        // Rebuild file with updated line
-        List<String> updatedLines = new ArrayList<>();
-        for (String line : allLines) {
-            if (line.equals(matchedLine)) {
-                updatedLines.add(updatedLine);
-            } else {
-                updatedLines.add(line);
-            }
-        }
-
-        try (FileWriter writer = new FileWriter(fileName, false)) {
-            for (String updated : updatedLines) {
-                writer.write(updated + System.lineSeparator());
-            }
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-            showError("更新登入資料時錯誤!");
-            return;
-        }
-
-        Integer[] loginDaysArray = loginDays.toArray(new Integer[0]);
-        loginSuccess(inputU, stage, loginDaysArray, totalLoggedInDays);
-    }
     
     private void showError(String message) {
         Alert alert = new Alert(AlertType.ERROR);
@@ -369,7 +249,7 @@ public class LoginPage {
     
     //enrolls user
     /*
-     * FORMAT: name XXXX password XXXX login days in a week XXXX hasLoggedInToday XXXX total logged in days
+     * FORMAT: name password weeklogin hasloggedin totalloggedin currentweek currentday
      */
     private void handleEnroll() {
     	
@@ -397,17 +277,16 @@ public class LoginPage {
             return;
         }
 
-        LocalDate today = LocalDate.now();
-        int currentDay = today.getDayOfWeek().getValue(); // 1 = Monday
-        int currentWeek = today.get(WeekFields.ISO.weekOfWeekBasedYear());
-        int totalLoggedInDays = 1; // First login upon enrollment
-        int weekLogin = 1;
-
-        String loginDays = currentDay + DAYS_DET; // e.g., "1X"
+        int totalLoggedInDays = 0;
+        int weekLogin = 0;
+        int hasLoggedIn = 0;
 
         try (FileWriter writer = new FileWriter(userDataFile.getPath(), true)) {  // true = append
             writer.write(inputU + FIELD_DET + inputP + FIELD_DET + weekLogin + FIELD_DET +
-                         loginDays + FIELD_DET + currentWeek + FIELD_DET + totalLoggedInDays + "\n");
+                    hasLoggedIn + FIELD_DET + totalLoggedInDays + FIELD_DET + currentWeek + FIELD_DET + currentDay +"\n");
+            /*
+             * FORMAT: name password weeklogin hasloggedin totalloggedin currentweek currentday
+             */
             showSuccess("Enrollment successful!");
         } catch (IOException e) {
             e.printStackTrace();
@@ -415,45 +294,19 @@ public class LoginPage {
         }
     }
 
-    public int[] getWeekLogin(String username) {
-        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
-            while (sc.hasNextLine()) {
-                String line = sc.nextLine();
-                String[] parts = line.split(FIELD_DET);
 
-                if (parts.length >= 4 && parts[0].equals(username)) {
-                    String loginDaysRaw = parts[3]; // example: 0X1X2X3X X
-
-                    // Remove the trailing "XX" and split by "X"
-                    String[] dayParts = loginDaysRaw.split(FIELD_DET)[0].split(DAYS_DET);
-
-                    List<Integer> dayList = new ArrayList<>();
-                    for (String part : dayParts) {
-                        if (!part.isEmpty()) {
-                            try {
-                                int day = Integer.parseInt(part);
-                                if (!dayList.contains(day)) {
-                                    dayList.add(day);
-                                }
-                            } catch (NumberFormatException ignored) {}
-                        }
-                    }
-
-                    // Convert list to array
-                    int[] result = new int[dayList.size()];
-                    for (int i = 0; i < dayList.size(); i++) {
-                        result[i] = dayList.get(i);
-                    }
-                    return result;
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        // If not found or error, return empty array
-        return new int[0];
+    private int getCurrentWeek() {
+        LocalDate date = LocalDate.now();
+        WeekFields weekFields = WeekFields.of(Locale.getDefault());
+        return date.get(weekFields.weekOfWeekBasedYear());
     }
-
+    
+    private int getCurrentDay() {
+    	Calendar calendar = Calendar.getInstance();
+    	int day = calendar.get(Calendar.DAY_OF_WEEK); 
+		return day;
+    }
+    
     private void handleClearFile() {
         if (dataFolder.exists() && dataFolder.isDirectory()) {
             File[] files = dataFolder.listFiles();
