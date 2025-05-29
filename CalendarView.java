@@ -9,62 +9,68 @@ import javafx.scene.text.Text;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.Set;
-// Main coder editor: Malulu
+
 public class CalendarView {
 
     private static final int CIRCLE_RADIUS = 30;
-    private LocalDate ld = LocalDate.now();
+    private static final int RING_WIDTH = 3;
+    private static final double SPACING = 15;
+    private static final Color CURRENT_DAY_COLOR = Color.RED;
+    private static final Color DEFAULT_DAY_COLOR = Color.GREEN;
+    private static final Color RING_COLOR = Color.GOLD;
+    private static final String[] DAY_NAMES = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+
     public StackPane getView(Set<Integer> loggedInDays, int totalLoggedInDays) {
-    	
-        StackPane root = new StackPane();
-        VBox content = new VBox(15); // 15px space between row and label
+        LocalDate today = LocalDate.now();
+        int currentDayIndex = today.getDayOfWeek().getValue(); // Monday = 1
+
+        // Ensure today is marked as a logged-in day
+        loggedInDays.add(currentDayIndex);
+
+        VBox content = new VBox(SPACING);
         content.setAlignment(Pos.CENTER);
 
-        HBox circleRow = new HBox(15);
+        HBox circleRow = new HBox(SPACING);
         circleRow.setAlignment(Pos.CENTER);
 
-        DayOfWeek currentDay = LocalDate.now().getDayOfWeek();
-        int currentDayIndex = currentDay.getValue(); // Monday = 1
-
-        String[] dayNames = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-
         for (int i = 1; i <= 7; i++) {
-            Circle mainCircle = new Circle(CIRCLE_RADIUS);
-            Text label = new Text(dayNames[i - 1]);
-
-            if (i == currentDayIndex) {
-                mainCircle.setFill(Color.RED);
-            } else {
-                mainCircle.setFill(Color.GREEN);
-            }
-
-            StackPane circleWithRing = new StackPane();
-
-            Circle goldenRing = null;
-            if (loggedInDays.contains(i)) {
-                goldenRing = new Circle(CIRCLE_RADIUS + 5);
-                goldenRing.setFill(Color.TRANSPARENT);
-                goldenRing.setStroke(Color.GOLD);
-                goldenRing.setStrokeWidth(3);
-                circleWithRing.getChildren().add(goldenRing); // Add first
-            }
-
-            circleWithRing.getChildren().add(mainCircle); // Add after so it's on top
-
-            VBox dayBox = new VBox(5, circleWithRing, label);
-            dayBox.setAlignment(Pos.CENTER);
-            circleRow.getChildren().add(dayBox);
+            circleRow.getChildren().add(createDayCircle(i, currentDayIndex, loggedInDays));
         }
 
+        Text dateText = createStyledText("Today is: " + today + " (yyyy-mm-dd)", 28, false);
+        Text loginCountText = createStyledText("Total login days: " + totalLoggedInDays, 28, true);
 
-        // Add login count label
-        Text loginCount = new Text("Total login days: " + totalLoggedInDays);
-        loginCount.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
-        Text date = new Text("Today is: " + ld + " (yyyy-mm-dd)");
-        date.setStyle("-fx-font-size: 28px;");
-        content.getChildren().addAll(date, circleRow, loginCount);
-        root.getChildren().add(content);
+        content.getChildren().addAll(dateText, circleRow, loginCountText);
 
-        return root;
+        return new StackPane(content);
+    }
+
+
+    private VBox createDayCircle(int dayIndex, int currentDayIndex, Set<Integer> loggedInDays) {
+        Circle mainCircle = new Circle(CIRCLE_RADIUS);
+        mainCircle.setFill(dayIndex == currentDayIndex ? CURRENT_DAY_COLOR : DEFAULT_DAY_COLOR);
+
+        StackPane circleStack = new StackPane();
+        circleStack.getChildren().add(mainCircle); // Add the base circle first
+
+        if (loggedInDays.contains(dayIndex)) {
+            Circle ring = new Circle(CIRCLE_RADIUS + RING_WIDTH);
+            ring.setFill(Color.TRANSPARENT);
+            ring.setStroke(RING_COLOR);
+            ring.setStrokeWidth(RING_WIDTH);
+            circleStack.getChildren().add(ring); // Add the ring on top of the base circle
+        }
+
+        Text label = new Text(DAY_NAMES[dayIndex - 1]);
+        VBox dayBox = new VBox(5, circleStack, label);
+        dayBox.setAlignment(Pos.CENTER);
+        return dayBox;
+    }
+
+
+    private Text createStyledText(String content, int fontSize, boolean bold) {
+        Text text = new Text(content);
+        text.setStyle(String.format("-fx-font-size: %dpx; %s", fontSize, bold ? "-fx-font-weight: bold;" : ""));
+        return text;
     }
 }
