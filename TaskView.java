@@ -98,42 +98,45 @@ public class TaskView {
             }
         });
         
-        editButton.setOnAction(e -> {
-        	String title = titleInput.getText().trim();
+       editButton.setOnAction(e -> {
+            String title = titleInput.getText().trim();
             String budget = budgetInput.getText().trim();
-            
-            if (title.isEmpty() || budget.isEmpty()) {
-                showAlert(AlertType.WARNING, "Both fields must be filled. (To delete, set budget to 0.");
+            String category = categoryBox.getValue();
+
+            if (title.isEmpty() || budget.isEmpty() || category == null) {
+                showAlert(AlertType.WARNING, "所有欄位都必須填寫！");
                 return;
             }
-            if(Integer.valueOf(budget) < 0) {
-            	showAlert(AlertType.WARNING, "Budget must be more than 0.");
+
+            if (Integer.parseInt(budget) < 0) {
+                showAlert(AlertType.WARNING, "預算必須大於 0！");
                 return;
             }
-            
-            if(isDuplicateTitle(title)) {
-            	deleteTitle(title);
-            	if(!budget.equals("0")) {
-                    writeFile(title, budget, categoryBox.getValue().toString());
-                    showAlert(AlertType.INFORMATION, "Entry edited and saved.");
-            	}else {
-                    showAlert(AlertType.INFORMATION, "Entry deleted and saved.");
-            	}
+
+            if (isDuplicateTitle(title)) {
+                deleteTitle(title);
+                if (!budget.equals("0")) {
+                    writeFile(title, budget, category);
+                    checkSpendingWarning(category);
+                    showAlert(AlertType.INFORMATION, "已編輯！");
+                } else {
+                    showAlert(AlertType.INFORMATION, "已刪除項目！");
+                }
                 updateDisplay(displayArea);
                 titleInput.clear();
                 budgetInput.clear();
             }
         });
-        
+
         deleteButton.setOnAction(e -> handleClearFile(filename));
-        
-        
+
         button.getChildren().addAll(saveButton, editButton);
         labelBox.getChildren().addAll(label);
         content.getChildren().addAll(labelBox, titleInputBox, budgetInput, button, displayArea, deleteButton);
         root.getChildren().add(content);
         return root;
     }
+
 
     private int fileCheck(String fileName) {
     	File file = new File(fileName);
@@ -154,7 +157,7 @@ public class TaskView {
         return 2;
     }
 
-    private void writeFile(String title, String budget, String type) {
+   private void writeFile(String title, String budget, String type) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename, true))) {
             writer.write(String.format("%-20s%-20s%-20s%n", title, budget, type));
         } catch (IOException e) {
