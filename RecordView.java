@@ -13,7 +13,7 @@ public class RecordView {
     public BorderPane getView(PieChart pieChart) {
         DatePicker datePicker = new DatePicker();
         ComboBox<String> categoryBox = new ComboBox<>();
-        categoryBox.getItems().addAll("吃的", "日常確幸", "服飾", "欠款", "通勤", "其他");
+        categoryBox.getItems().addAll("食物", "日常確幸", "服飾", "欠款", "通勤", "其他");
 
         TextField itemField = new TextField();
         itemField.setPromptText("請輸入項目名稱");
@@ -40,7 +40,7 @@ public class RecordView {
                 new Label("日期:"), datePicker,
                 new Label("類別:"), categoryBox,
                 new Label("項目:"), itemField,
-                new Label("金額:"), amountField,submitBtn,deleteCategoryBtn);
+                new Label("金額:"), amountField, submitBtn, deleteCategoryBtn);
         
         inputRow.setPadding(new Insets(10));
 
@@ -51,10 +51,27 @@ public class RecordView {
                 String name = itemField.getText();
                 double amount = Double.parseDouble(amountField.getText());
 
-                Record newRecord = new Record(date, category, name,amount);
+                Record newRecord = new Record(date, category, name, amount);
                 Project_Accounting.records.add(newRecord);
                 recordList.getItems().add(newRecord.toString());
-                
+
+                // 新增功能：支出預警（當該類別支出超過所有支出80%時）
+                double totalAmount = Project_Accounting.records.stream()
+                        .mapToDouble(r -> r.amount)
+                        .sum();
+                double categoryAmount = Project_Accounting.records.stream()
+                        .filter(r -> r.category.equals(category))
+                        .mapToDouble(r -> r.amount)
+                        .sum();
+
+                double warningThreshold = 0.8; // 50%
+                if (totalAmount > 0 && (categoryAmount / totalAmount) > warningThreshold) {
+                    Alert alert = new Alert(Alert.AlertType.WARNING);
+                    alert.setTitle("支出預警");
+                    alert.setHeaderText(null);
+                    alert.setContentText("警告！類別「" + category + "」的支出已超過總支出的 80%！");
+                    alert.showAndWait();
+                }
 
                 updatePieChartWithSummary(pieChart, Project_Accounting.records);
             } catch (Exception ex) {
@@ -76,8 +93,7 @@ public class RecordView {
         return layout;
     }
 
-
-	private void updatePieChartWithSummary(PieChart chart, List<Record> records) {
+    private void updatePieChartWithSummary(PieChart chart, List<Record> records) {
         try {
             Map<String, Double> categoryTotals = new HashMap<>();
             for (Record r : records) {
@@ -89,8 +105,8 @@ public class RecordView {
             if (total == 0) total = 1; 
 
             for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-            	double percentage = (entry.getValue() / total) * 100;
-            	chart.getData().add(new PieChart.Data(entry.getKey() + " " + String.format("%.1f%%", percentage), entry.getValue()));                
+                double percentage = (entry.getValue() / total) * 100;
+                chart.getData().add(new PieChart.Data(entry.getKey() + " " + String.format("%.1f%%", percentage), entry.getValue()));                
             }
 
             summaryBox.getChildren().clear();
