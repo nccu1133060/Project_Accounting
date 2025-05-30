@@ -48,7 +48,7 @@ public class TaskView {
         
         Label type = new Label("請輸入類別: ");
         ComboBox<String> categoryBox = new ComboBox<>();
-        categoryBox.getItems().addAll("吃的", "日常確幸", "服飾", "欠款", "通勤", "其他");
+        categoryBox.getItems().addAll("食物", "日常確幸", "服飾", "欠款", "通勤", "其他");
         
         HBox titleInputBox = new HBox(10);
         titleInputBox.getChildren().addAll(titleInput, type, categoryBox);
@@ -159,6 +159,35 @@ public class TaskView {
             writer.write(String.format("%-20s%-20s%-20s%n", title, budget, type));
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+private void checkSpendingWarning(String category) {
+        double totalBudget = 0;
+        double totalSpending = 0;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            reader.readLine(); // Skip header
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.trim().split("\\s+");
+                if (parts.length >= 3 && parts[2].equals(category)) {
+                    totalBudget += Double.parseDouble(parts[1]);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        for (Record r : Project_Accounting.records) {
+            if (r.category.equals(category)) {
+                totalSpending += r.amount;
+            }
+        }
+
+        if (totalBudget > 0 && totalSpending / totalBudget >= 0.8) {
+            showAlert(AlertType.WARNING,
+                String.format("警告：%s 的支出已達預算 %.1f%%！(%.0f / %.0f 元)",
+                    category, (totalSpending / totalBudget) * 100, totalSpending, totalBudget));
         }
     }
 
