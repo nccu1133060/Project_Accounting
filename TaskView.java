@@ -79,20 +79,20 @@ public class TaskView {
             String budget = budgetInput.getText().trim();
 
             if (title.isEmpty() || budget.isEmpty()) {
-                showAlert(AlertType.WARNING, "Both fields must be filled.");
+                showAlert(AlertType.WARNING, "兩個都要填!");
                 return;
             }
             if(Integer.valueOf(budget) < 0) {
-            	showAlert(AlertType.WARNING, "Budget must be more than 0.");
+            	showAlert(AlertType.WARNING, "預算必須大於零.");
                 return;
             }
 
             if (isDuplicateTitle(title)) {
-                showAlert(AlertType.ERROR, "Title already exists.");
+                showAlert(AlertType.ERROR, "該項目已經存在.");
             } else {
                 writeFile(title, budget, categoryBox.getValue().toString());
                 updateDisplay(displayArea);
-                showAlert(AlertType.INFORMATION, "Entry saved.");
+                showAlert(AlertType.INFORMATION, "儲存成功.");
                 titleInput.clear();
                 budgetInput.clear();
             }
@@ -109,7 +109,7 @@ public class TaskView {
             }
 
             if (Integer.parseInt(budget) < 0) {
-                showAlert(AlertType.WARNING, "預算必須大於 0！");
+                showAlert(AlertType.WARNING, "預算必須大於 0");
                 return;
             }
 
@@ -220,7 +220,7 @@ private void checkSpendingWarning(String category) {
             
             while ((line = reader.readLine()) != null) {
                 // Skip header, always keep it
-                if (line.trim().equalsIgnoreCase("Title     Budget     Category")) {
+                if (line.trim().equalsIgnoreCase("項目     預算     分類")) {
                     writer.write(line);
                     writer.newLine();
                     continue;
@@ -255,7 +255,7 @@ private void checkSpendingWarning(String category) {
     
     private void writeInitial() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            writer.write(String.format("%-20s%-20s%-20s%n", "Title", "Budget", "Category"));
+            writer.write(String.format("%-20s%-20s%-20s%n", "項目", "預算", "分類"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -311,7 +311,7 @@ private void checkSpendingWarning(String category) {
     
     private void showSuccess(String message) {
     	Alert alert = new Alert(AlertType.INFORMATION);
-        alert.setTitle("Success");
+        alert.setTitle("成功");
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
@@ -319,7 +319,7 @@ private void checkSpendingWarning(String category) {
     
     private void showError(String message) {
     	Alert alert = new Alert(AlertType.ERROR);
-        alert.setTitle("Error");
+        alert.setTitle("錯誤");
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
@@ -330,5 +330,30 @@ private void checkSpendingWarning(String category) {
         alert.setContentText(message);
         alert.showAndWait();
     }
+	//需要再編輯因為這很難弄好看
+	private void style(StackPane root, Label label, TextField titleInput, TextField budgetInput,
+            ComboBox<String> categoryBox, TextArea displayArea,
+            Button saveButton, Button editButton, Button deleteButton) {
+
+		// Background color
+		root.setStyle("-fx-background-color: #87CEFA;"); // Light Blue
+	
+		// Label style
+		label.setStyle("-fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: white;");
+	
+		// TextFields and ComboBox
+		String inputStyle = "-fx-background-color: white; -fx-border-color: gray; -fx-border-radius: 5;";
+		titleInput.setStyle(inputStyle);
+		budgetInput.setStyle(inputStyle);
+		categoryBox.setStyle("-fx-background-color: white; -fx-border-color: gray;");
+
+		// Buttons
+		saveButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");   // Green
+		editButton.setStyle("-fx-background-color: #FFA500; -fx-text-fill: white;");   // Orange
+		deleteButton.setStyle("-fx-background-color: #8B0000; -fx-text-fill: white;"); // Red
+
+		// Display Area
+		displayArea.setStyle("-fx-control-inner-background: #F0F8FF; -fx-font-family: monospace;");
+	}
 }
 
