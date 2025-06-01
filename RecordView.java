@@ -38,7 +38,9 @@ public class RecordView {
 
         HBox inputRow = new HBox(10,
                 new Label("日期:"), datePicker,
-                new Label("類別:"), categoryBox,
+                new Label("類別:"), categoryBox);
+        
+        VBox inputV = new VBox(10,
                 new Label("項目:"), itemField,
                 new Label("金額:"), amountField, submitBtn, deleteCategoryBtn);
         
@@ -86,7 +88,7 @@ public class RecordView {
         layout.setTop(inputRow);
         layout.setCenter(recordList);
 
-        VBox rightPanel = new VBox(10, pieChart, summaryBox);
+        VBox rightPanel = new VBox(10, inputV, pieChart, summaryBox);
         rightPanel.setPadding(new Insets(10));
         layout.setRight(rightPanel);
 
