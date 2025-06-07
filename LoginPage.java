@@ -24,7 +24,7 @@ public class LoginPage {
     private final String DB_URL = " http://140.119.19.73/phpmyadmin";
     private final String DB_USER = "TG12";
     private final String DB_PASSWORD = "nkH3Iq";
-    private final String TABLE_NAME = "TG12";
+    private final String TABLE_NAME = "users";
     private Connection connection;
     
     // 時間相關
