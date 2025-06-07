@@ -8,316 +8,261 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.io.*;
+import java.sql.*;
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
 import java.util.*;
 
 public class LoginPage {
 
-	private final File dataFolder = new File("data");
-	private final File userDataFile = new File(dataFolder, "UserNames.txt");
-
-	private final String FIELD_DET = "XXXX";
-	private final int currentWeek = getCurrentWeek();
-	private final int currentDay = getCurrentDay();
+    // 檔案系統設定
+    private final File dataFolder = new File("data");
+    private final File userDataFile = new File(dataFolder, "UserNames.txt");
+    private final String FIELD_DELIMITER = "XXXX";
+    
+    // 資料庫設定
+    private final String DB_URL = "jdbc:mysql://localhost:3306/accounting_app";
+    private final String DB_USER = "root";
+    private final String DB_PASSWORD = "password";
+    private final String TABLE_NAME = "users";
+    private Connection connection;
+    
+    // 時間相關
+    private final int currentWeek = getCurrentWeek();
+    private final int currentDay = getCurrentDay();
+    
+    // UI元件
     private TextField tfUserName;
     private PasswordField tfPassword;
     private Button btnLogin, btnEnroll, btnClearFile;
-    private String fileName = "UserNames.txt";
 
     public void createLoginPage(Stage stage) {
-    	
-    	fileCheck(userDataFile);
+        initializeDatabase(); // 初始化資料庫連接
+        syncFromDatabase();  // 從資料庫同步資料
 
+        // UI初始化
         VBox layout = new VBox(10);
-        VBox button = new VBox(10);
         tfUserName = new TextField();
         tfUserName.setPromptText("使用者名稱");
-
+        
         tfPassword = new PasswordField();
         tfPassword.setPromptText("輸入密碼");
-
-        btnEnroll = new Button("註冊");
+        
         btnLogin = new Button("登入");
-        btnClearFile = new Button("清除檔案並關閉程式(按下前請三思)");
+        btnEnroll = new Button("註冊");
+        btnClearFile = new Button("清除檔案並關閉程式（按下前請三思）");
         btnClearFile.setStyle("-fx-background-color: #8B0000; -fx-text-fill: #FFFFFF;");
-
+        
+        // 事件處理
         btnLogin.setOnAction(e -> handleLogin(stage));
         btnEnroll.setOnAction(e -> handleEnroll());
         btnClearFile.setOnAction(e -> handleClearFile());
         
-        button.getChildren().addAll(btnLogin, btnEnroll, btnClearFile);
-        layout.getChildren().addAll(tfUserName, tfPassword, button);
-
+        layout.getChildren().addAll(tfUserName, tfPassword, btnLogin, btnEnroll, btnClearFile);
         Scene scene = new Scene(layout, 400, 300);
-        stage.setTitle("記帳軟體登入");
         stage.setScene(scene);
+        stage.setTitle("記帳軟體登入");
         stage.show();
     }
-    
-    //Checks if file exists, if not, create a new file.
-    private void fileCheck(File userFile) {
-        if (!dataFolder.exists()) {
-            dataFolder.mkdirs();  // Create the folder if missing
-            System.out.println("Created data directory.");
-        }
 
-        if (!userFile.exists()) {
-            try {
-                if (userFile.createNewFile()) {
-                	showSuccess("File creation successful!");
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                System.exit(1);
-            }
-        } else {
-            System.out.println("Save file found.");
+    //資料庫相關方法
+    private void initializeDatabase() {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+            createTableIfNotExists(); // 確保資料表存在
+        } catch (Exception e) {
+            System.err.println("資料庫連接失敗，將使用本地儲存: " + e.getMessage());
         }
     }
 
-    
-    //The login process after the user presses the login button
-    private void handleLogin(Stage stage) {
-        String inputU = tfUserName.getText().trim();
-        String inputP = tfPassword.getText().trim();
-        int totalLoggedInDays = 0;
-
-        if (inputU.isEmpty() || inputP.isEmpty()) {
-            showError("使用者名稱或密碼不得為空!");
-            return;
+    private void createTableIfNotExists() throws SQLException {
+        String sql = "CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" +
+                     "username VARCHAR(50) PRIMARY KEY, " +
+                     "password VARCHAR(50) NOT NULL, " +
+                     "week_login VARCHAR(20) NOT NULL, " +
+                     "has_logged_in INT NOT NULL, " +
+                     "total_logged_in_days INT NOT NULL, " +
+                     "current_week INT NOT NULL, " +
+                     "current_day INT NOT NULL)";
+        try (Statement stmt = connection.createStatement()) {
+            stmt.executeUpdate(sql);
         }
+    }
 
-        boolean userFound = false;
-        String storedP = null; // stored password
-        StringBuilder weekLogin = new StringBuilder(); // login days in a week
-        String tempWeekLogin = " "; // temp
-        int recordedWeek = 0; // record week
-        int recordedDay = 0; // //day
-        int hasLoggedIn = 1; // same day login indicator
-        String matchedLine = null;
-        List<String> allLines = new ArrayList<>();
+    private void syncFromDatabase() {
+        if (!isDatabaseConnected()) return;
+        
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM " + TABLE_NAME)) {
+            
+            // 清空本地檔案
+            try (PrintWriter writer = new PrintWriter(userDataFile)) {
+                while (rs.next()) {
+                    writer.printf("%s%s%s%s%s%s%d%s%d%s%d%s%d%n",
+                        rs.getString("username"), FIELD_DELIMITER,
+                        rs.getString("password"), FIELD_DELIMITER,
+                        rs.getString("week_login"), FIELD_DELIMITER,
+                        rs.getInt("has_logged_in"), FIELD_DELIMITER,
+                        rs.getInt("total_logged_in_days"), FIELD_DELIMITER,
+                        rs.getInt("current_week"), FIELD_DELIMITER,
+                        rs.getInt("current_day"));
+                }
+            }
+        } catch (SQLException | IOException e) {
+            showError("從資料庫同步失敗: " + e.getMessage());
+        }
+    }
 
-        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
-            while (sc.hasNextLine()) {
-                String line = sc.nextLine();
-                allLines.add(line);
-                String[] parts = line.split(FIELD_DET);
-
-                if (parts.length >= 7) {
-                    String storedU = parts[0];
-                    if (storedU.equals(inputU)) {
-                        userFound = true;
-                        storedP = parts[1];
-                        tempWeekLogin = parts[2];
-                        hasLoggedIn = Integer.parseInt(parts[3]);
-                        totalLoggedInDays = Integer.parseInt(parts[4]);
-                        recordedWeek = Integer.parseInt(parts[5]);
-                        recordedDay = Integer.parseInt(parts[6]);
-                        matchedLine = line;
-                        break;
+    private void syncToDatabase() {
+        if (!isDatabaseConnected()) return;
+        
+        try {
+            // 清空資料庫表
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate("TRUNCATE TABLE " + TABLE_NAME);
+            }
+            
+            // 從本地檔案讀取並寫入資料庫
+            try (Scanner scanner = new Scanner(userDataFile);
+                 PreparedStatement pstmt = connection.prepareStatement(
+                     "INSERT INTO " + TABLE_NAME + " VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                
+                while (scanner.hasNextLine()) {
+                    String[] parts = scanner.nextLine().split(FIELD_DELIMITER);
+                    if (parts.length == 7) {
+                        pstmt.setString(1, parts[0]);
+                        pstmt.setString(2, parts[1]);
+                        pstmt.setString(3, parts[2]);
+                        pstmt.setInt(4, Integer.parseInt(parts[3]));
+                        pstmt.setInt(5, Integer.parseInt(parts[4]));
+                        pstmt.setInt(6, Integer.parseInt(parts[5]));
+                        pstmt.setInt(7, Integer.parseInt(parts[6]));
+                        pstmt.executeUpdate();
                     }
                 }
             }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            showError("讀檔時錯誤!");
-            return;
+        } catch (SQLException | IOException e) {
+            showError("同步到資料庫失敗: " + e.getMessage());
         }
-
-        if (!userFound) {
-            showError("找不到使用者名稱!");
-            return;
-        }
-
-        if (!inputP.equals(storedP)) {
-            showError("密碼錯誤!");
-            return;
-        }
-
-        // Get current date info
-        LocalDate today = LocalDate.now();
-        int currentDayOfWeek = today.getDayOfWeek().getValue(); // 1 = Monday
-        int currentWeek = today.get(WeekFields.ISO.weekOfWeekBasedYear());
-
-        // Reset hasLoggedIn if it's a new day
-        if (recordedDay != currentDayOfWeek) {
-            hasLoggedIn = 0;
-        }
-
-        // Update login state
-     // Update login info
-        if (recordedDay != currentDayOfWeek) {
-            hasLoggedIn = 0;
-        }
-
-        if (recordedWeek != currentWeek || hasLoggedIn == 0) {
-            totalLoggedInDays++;
-            hasLoggedIn = 1;
-        }
-
-        String weekLoginStr = buildNormalizedWeekLogin(tempWeekLogin, recordedWeek, recordedDay,
-                                                        currentWeek, currentDayOfWeek, hasLoggedIn);
-
-        // Prepare updated line
-        String updatedLine = inputU + FIELD_DET + storedP + FIELD_DET + weekLoginStr + FIELD_DET +
-                hasLoggedIn + FIELD_DET + totalLoggedInDays + FIELD_DET +
-                currentWeek + FIELD_DET + currentDayOfWeek + "\n";
-        
-        // Rebuild file content
-        List<String> updatedLines = new ArrayList<>();
-        for (String line : allLines) {
-            if (line.equals(matchedLine)) {
-                updatedLines.add(updatedLine);
-            } else {
-                updatedLines.add(line);
-            }
-        }
-
-        try (FileWriter writer = new FileWriter(userDataFile, false)) {
-            for (String updated : updatedLines) {
-                writer.write(updated + System.lineSeparator());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("更新登入資料時錯誤!");
-            return;
-        }
-        
-        String[] updatedWeekLoginS = weekLoginStr.split("\\.");
-        Integer[] updatedWeekLoginI = new Integer[updatedWeekLoginS.length];
-
-        for (int i = 0; i < 7; i++) {
-            if(updatedWeekLoginS[i].equals("1")) {
-            	updatedWeekLoginI[i] = i + 1;
-            }
-        }
-
-        loginSuccess(inputU, stage, updatedWeekLoginI, totalLoggedInDays);
     }
 
-
-    //Passes the data after success login
-    private void loginSuccess(String name, Stage stage, Integer[] loginDaysArray, int totalLoggedInDays) {
-        Project_Accounting app = new Project_Accounting();
-        stage.setTitle("記帳軟體");
-        app.start(stage);
-        app.setupMainMenu(name, stage, loginDaysArray, totalLoggedInDays);
-
+    private boolean isDatabaseConnected() {
+        try {
+            return connection != null && !connection.isClosed();
+        } catch (SQLException e) {
+            return false;
+        }
     }
 
-    //Identical to normal login only with the name and password set to mine
-    
-    private void showError(String message) {
-        Alert alert = new Alert(AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
+   
+    private void handleLogin(Stage stage) {
+        String username = tfUserName.getText().trim();
+        String password = tfPassword.getText().trim();
 
-    private void showSuccess(String message) {
-        Alert alert = new Alert(AlertType.INFORMATION);
-        alert.setTitle("Success");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
-    
-    //enrolls user
-    /*
-     * FORMAT: name password weeklogin hasloggedin totalloggedin currentweek currentday
-     */
-    private void handleEnroll() {
-    	
-        String inputU = tfUserName.getText().trim();
-        String inputP = tfPassword.getText().trim();
-        
-        if (inputU.isEmpty() || inputP.isEmpty()) {
-            showError("Username and Password cannot be empty");
+        if (username.isEmpty() || password.isEmpty()) {
+            showError("使用者名稱或密碼不得為空！");
             return;
         }
 
-        // Check for duplicate user names
-        try (Scanner sc = new Scanner(new File(userDataFile.getPath()))) {
-            while (sc.hasNextLine()) {
-                String line = sc.nextLine();
-                String[] parts = line.split(FIELD_DET);
-                if (parts.length >= 1 && parts[0].equals(inputU)) {
-                    showError("Username already exists!");
-                    return;
+        // 從本地檔案驗證
+        boolean isValid = false;
+        try (Scanner scanner = new Scanner(userDataFile)) {
+            while (scanner.hasNextLine()) {
+                String[] parts = scanner.nextLine().split(FIELD_DELIMITER);
+                if (parts.length >= 2 && parts[0].equals(username) && parts[1].equals(password)) {
+                    isValid = true;
+                    break;
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("Error checking existing users");
+        } catch (FileNotFoundException e) {
+            showError("找不到使用者資料檔案！");
             return;
         }
 
-        int totalLoggedInDays = 0;
-        int weekLogin = 0;
-        int hasLoggedIn = 0;
-
-        try (FileWriter writer = new FileWriter(userDataFile.getPath(), true)) {  // true = append
-            writer.write(inputU + FIELD_DET + inputP + FIELD_DET + weekLogin + FIELD_DET +
-                    hasLoggedIn + FIELD_DET + totalLoggedInDays + FIELD_DET + currentWeek + FIELD_DET + currentDay +"\n");
-            /*
-             * FORMAT: name password weeklogin hasloggedin totalloggedin currentweek currentday
-             */
-            showSuccess("Enrollment successful!");
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("Error enrolling user");
+        if (isValid) {
+            syncToDatabase(); // 登入成功時同步到資料庫
+            showSuccess("登入成功！");
+            // 這裡可以繼續原有登入成功後的處理
+        } else {
+            showError("使用者名稱或密碼錯誤！");
         }
     }
-    
-    //Don't touch
-    private String buildNormalizedWeekLogin(String previousLogin, int recordedWeek, int recordedDay,
-            int currentWeek, int currentDayOfWeek, int hasLoggedIn) {
-    			int[] days = new int[7]; // default to 0s
 
-    			// Fill previous login data if it's same week
-    			if (recordedWeek == currentWeek) {
-    				String[] split = previousLogin.split("\\.");
-    				for (int i = 0; i < Math.min(split.length, 7); i++) {
-    					try {
-    						days[i] = Integer.parseInt(split[i]);
-    					} catch (NumberFormatException e) {
-    						days[i] = 0;
-    					}
-    				}
+    private void handleEnroll() {
+        String username = tfUserName.getText().trim();
+        String password = tfPassword.getText().trim();
 
-    				// If not logged in yet today, mark it
-    				if (hasLoggedIn == 0) {
-    					days[currentDayOfWeek - 1] = 1;
-    				}
-    			} else {
-    				// New week, only mark today
-    				days[currentDayOfWeek - 1] = 1;
-    			}
+        if (username.isEmpty() || password.isEmpty()) {
+            showError("使用者名稱或密碼不得為空！");
+            return;
+        }
 
-    			// Build string
-    			StringBuilder sb = new StringBuilder();
-    			for (int i = 0; i < 7; i++) {
-    				sb.append(days[i]).append(".");
-    			}
-    			
-    			return sb.toString();
+        // 檢查是否已存在（本地+資料庫）
+        boolean exists = false;
+        try (Scanner scanner = new Scanner(userDataFile)) {
+            while (scanner.hasNextLine()) {
+                String[] parts = scanner.nextLine().split(FIELD_DELIMITER);
+                if (parts.length >= 1 && parts[0].equals(username)) {
+                    exists = true;
+                    break;
+                }
+            }
+        } catch (FileNotFoundException e) {
+            // 檔案不存在，繼續註冊
+        }
+
+        if (!exists && isDatabaseConnected()) {
+            // 檢查資料庫中是否已存在
+            try (PreparedStatement pstmt = connection.prepareStatement(
+                    "SELECT username FROM " + TABLE_NAME + " WHERE username = ?")) {
+                pstmt.setString(1, username);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        exists = true;
+                    }
+                }
+            } catch (SQLException e) {
+                showError("檢查資料庫時發生錯誤: " + e.getMessage());
+                return;
+            }
+        }
+
+        if (exists) {
+            showError("該使用者名稱已存在！");
+            return;
+        }
+
+        // 寫入本地檔案
+        try (FileWriter writer = new FileWriter(userDataFile, true)) {
+            writer.write(username + FIELD_DELIMITER + password + FIELD_DELIMITER + 
+                        "0.0.0.0.0.0.0" + FIELD_DELIMITER + "0" + FIELD_DELIMITER + 
+                        "0" + FIELD_DELIMITER + currentWeek + FIELD_DELIMITER + 
+                        currentDay + "\n");
+            
+            // 如果資料庫連接正常，同時寫入資料庫
+            if (isDatabaseConnected()) {
+                try (PreparedStatement pstmt = connection.prepareStatement(
+                        "INSERT INTO " + TABLE_NAME + " VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    pstmt.setString(1, username);
+                    pstmt.setString(2, password);
+                    pstmt.setString(3, "0.0.0.0.0.0.0");
+                    pstmt.setInt(4, 0);
+                    pstmt.setInt(5, 0);
+                    pstmt.setInt(6, currentWeek);
+                    pstmt.setInt(7, currentDay);
+                    pstmt.executeUpdate();
+                }
+            }
+            
+            showSuccess("註冊成功！");
+        } catch (IOException | SQLException e) {
+            showError("註冊時發生錯誤: " + e.getMessage());
+        }
     }
 
-    private int getCurrentWeek() {
-        LocalDate date = LocalDate.now();
-        WeekFields weekFields = WeekFields.of(Locale.getDefault());
-        return date.get(weekFields.weekOfWeekBasedYear());
-    }
-    
-    private int getCurrentDay() {
-    	Calendar calendar = Calendar.getInstance();
-    	int day = calendar.get(Calendar.DAY_OF_WEEK); 
-		return day;
-    }
-    
     private void handleClearFile() {
+        // 清除本地檔案
         if (dataFolder.exists() && dataFolder.isDirectory()) {
             File[] files = dataFolder.listFiles();
             boolean allDeleted = true;
@@ -331,14 +276,52 @@ public class LoginPage {
             }
 
             if (allDeleted) {
-                showSuccess("All data files cleared.");
+                showSuccess("所有本地檔案已清除！");
             } else {
-                showError("Some files could not be deleted.");
+                showError("部分檔案無法刪除！");
             }
         } else {
-            showError("Data folder does not exist.");
+            showError("找不到資料目錄！");
         }
-        System.exit(0);  // Close application
+        
+        // 如果資料庫連接正常，清除資料庫
+        if (isDatabaseConnected()) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate("TRUNCATE TABLE " + TABLE_NAME);
+                showSuccess("資料庫資料也已清除！");
+            } catch (SQLException e) {
+                showError("清除資料庫時發生錯誤: " + e.getMessage());
+            }
+        }
+        
+        System.exit(0);
     }
 
+   
+    private int getCurrentWeek() {
+        return LocalDate.now().get(WeekFields.ISO.weekOfWeekBasedYear());
+    }
+
+    private int getCurrentDay() {
+        return LocalDate.now().getDayOfWeek().getValue(); // 1=Monday,...,7=Sunday
+    }
+
+    private void showError(String message) {
+        new Alert(AlertType.ERROR, message).showAndWait();
+    }
+
+    private void showSuccess(String message) {
+        new Alert(AlertType.INFORMATION, message).showAndWait();
+    }
+
+    public void close() {
+        if (isDatabaseConnected()) {
+            try {
+                syncToDatabase(); // 關閉前同步資料
+                connection.close();
+            } catch (SQLException e) {
+                System.err.println("關閉資料庫連接時出錯: " + e.getMessage());
+            }
+        }
+    }
 }
