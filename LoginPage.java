@@ -21,10 +21,10 @@ public class LoginPage {
     private final String FIELD_DELIMITER = "XXXX";
     
     // 資料庫設定
-    private final String DB_URL = "jdbc:mysql://localhost:3306/accounting_app";
-    private final String DB_USER = "root";
-    private final String DB_PASSWORD = "password";
-    private final String TABLE_NAME = "users";
+    private final String DB_URL = " http://140.119.19.73/phpmyadmin";
+    private final String DB_USER = "TG12";
+    private final String DB_PASSWORD = "nkH3Iq";
+    private final String TABLE_NAME = "TG12";
     private Connection connection;
     
     // 時間相關
